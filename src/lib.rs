@@ -63,7 +63,7 @@ macro_rules! quickerr {
             - $source:ident
         )+
     ) => {
-        #[$($attrs)*]
+        $(#[$attrs])*
         #[derive(Debug)]
         #[non_exhaustive]
         $pub enum $name {
@@ -106,7 +106,7 @@ macro_rules! quickerr {
         # $pub:vis $name:ident
         $msg:literal
     ) => {
-        #[$($attrs)*]
+        $(#[$attrs])*
         #[derive(Debug)]
         #[non_exhaustive]
         $pub struct $name;
@@ -128,7 +128,7 @@ macro_rules! quickerr {
             - $field:ident : $ty:ty
         )+
     ) => {
-        #[$($attrs)*]
+        $(#[$attrs])*
         #[derive(Debug)]
         #[non_exhaustive]
         $pub struct $name {
@@ -156,7 +156,7 @@ macro_rules! quickerr {
             - $source:ident
         )+
     ) => {
-        #[$($attrs)*]
+        $(#[$attrs])*
         #[derive(Debug)]
         #[non_exhaustive]
         $pub enum $name {
