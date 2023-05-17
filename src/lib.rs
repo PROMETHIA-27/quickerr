@@ -1,9 +1,4 @@
-//! This crate defines a macro to make defining errors a bit less
-//! boilerplate-heavy for this project.
-//!
-//! It uses markdown-like syntax.
-//!
-//! It is not intended for general purpose use and will likely not be split out.
+#![doc = include_str!("../README.md")]
 
 /// This macro allows quickly defining errors in the format that this crate produces.
 ///
