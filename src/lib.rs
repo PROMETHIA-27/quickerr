@@ -3,7 +3,7 @@
 
 /// This macro allows quickly defining errors in the format that this crate produces.
 ///
-/// It has 4 major forms:
+/// It has 5 major forms:
 /// - Unit struct:
 /// ```
 /// # use quickerr::quickerr;
@@ -51,6 +51,15 @@
 ///     - REALLY_LOUD_ERROR
 /// }
 /// ```
+/// - Array:
+/// ```
+/// # use quickerr::quickerr;
+/// # quickerr! { SomeError "" }
+/// quickerr! {
+///     ManyProblems[SomeError]
+///     "encountered many problems"
+/// }
+/// ```
 ///
 /// Each form implements `Debug`, `Error`, and `From` as appropriate. The enum forms implement
 /// [`std::error::Error::source()`] for each of their variants, and each variant must be the name
@@ -88,7 +97,7 @@ macro_rules! quickerr {
         }
 
         impl ::std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 match self {
                     $(
                         Self::$source(err) => ::std::fmt::Display::fmt(err, f),
@@ -98,7 +107,7 @@ macro_rules! quickerr {
         }
 
         impl ::std::error::Error for $name {
-            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            fn source(&self) -> ::std::option::Option<&(dyn ::std::error::Error + 'static)> {
                 Some(match self {
                     $(
                         $name::$source(err) => err,
@@ -127,7 +136,7 @@ macro_rules! quickerr {
         $pub struct $name;
 
         impl ::std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 f.write_str($msg)
             }
         }
@@ -154,7 +163,7 @@ macro_rules! quickerr {
 
         impl ::std::fmt::Display for $name {
             #[allow(unused_variables)]
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 let Self { $($field,)+ } = self;
                 f.write_fmt(format_args!($msg))
             }
@@ -181,13 +190,13 @@ macro_rules! quickerr {
         }
 
         impl ::std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 f.write_str($msg)
             }
         }
 
         impl ::std::error::Error for $name {
-            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            fn source(&self) -> ::std::option::Option<&(dyn ::std::error::Error + 'static)> {
                 Some(match self {
                     $(
                         $name::$source(err) => err,
@@ -204,10 +213,35 @@ macro_rules! quickerr {
             }
         )+
     };
+
+    (
+        $(#[$attrs:meta])*
+        $pub:vis $name:ident [$inner:ty]
+        $msg:literal
+    ) => {
+        $(#[$attrs])*
+        #[derive(Debug)]
+        #[non_exhaustive]
+        $pub struct $name(Vec<$inner>);
+
+        impl ::std::fmt::Display for $name {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                f.write_str($msg)?;
+                f.write_str(":")?;
+                for err in &self.0 {
+                    f.write_str("\n")?;
+                    f.write_fmt(format_args!("{}", err))?;
+                }
+                Ok(())
+            }
+        }
+
+        impl ::std::error::Error for $name {}
+    };
 }
 
 #[test]
-fn four_forms_compile() {
+fn all_forms_compile() {
     quickerr! {
         /// Documented
         #[derive(PartialEq)]
@@ -237,6 +271,13 @@ fn four_forms_compile() {
         TransError
         - RecordError
         - EnumError
+    }
+
+    quickerr! {
+        /// Documented
+        #[derive(PartialEq)]
+        ArrayError[UnitError]
+        "encountered a series of errors"
     }
 
     let trans = TransError::EnumError(EnumError::UnitError(UnitError));
