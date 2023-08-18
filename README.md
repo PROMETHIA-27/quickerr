@@ -4,17 +4,17 @@ A macro to define errors quickly, like `thiserror` but terser and more opinionat
 
 ## Example:
 ```rust
-# use quickerr::quickerr;
-# quickerr! { MyOtherError "" }
-# quickerr! { MySecondOtherError "" }
-quickerr! {
+# use quickerr::error;
+# error! { MyOtherError "" }
+# error! { MySecondOtherError "" }
+error! {
   pub EnumError
   "a problem happened!"
-  - MyOtherError
-  - MySecondOtherError
+  MyOtherError,
+  MySecondOtherError,
 }
 ```
-this expands to:
+this roughly expands to:
 ```rust,ignore
 #[derive(Debug)]
 #[non_exhaustive]
