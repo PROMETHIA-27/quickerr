@@ -84,6 +84,7 @@ macro_rules! quickerr {
         $(#[$attrs:meta])*
         $pub:vis $name:ident
         $(
+            $(#[$source_attrs:meta])*
             - $source:ident
         )+
     ) => {
@@ -92,6 +93,7 @@ macro_rules! quickerr {
         #[non_exhaustive]
         $pub enum $name {
             $(
+                $(#[$source_attrs])*
                 $source ($source),
             )+
         }
@@ -149,6 +151,7 @@ macro_rules! quickerr {
         $pub:vis $name:ident
         $msg:literal
         $(
+            $(#[$field_attrs:meta])*
             - $field:ident : $ty:ty
         )+
     ) => {
@@ -157,6 +160,7 @@ macro_rules! quickerr {
         #[non_exhaustive]
         $pub struct $name {
             $(
+                $(#[$field_attrs])*
                 pub $field: $ty,
             )+
         }
@@ -177,6 +181,7 @@ macro_rules! quickerr {
         $pub:vis $name:ident
         $msg:literal
         $(
+            $(#[$source_attrs:meta])*
             - $source:ident
         )+
     ) => {
@@ -185,6 +190,7 @@ macro_rules! quickerr {
         #[non_exhaustive]
         $pub enum $name {
             $(
+                $(#[$source_attrs])*
                 $source ($source),
             )+
         }
@@ -216,13 +222,15 @@ macro_rules! quickerr {
 
     (
         $(#[$attrs:meta])*
-        $pub:vis $name:ident [$inner:ty]
+        $pub:vis $name:ident
+        $(#[$vec_attrs:meta])*
+        [$inner:ty]
         $msg:literal
     ) => {
         $(#[$attrs])*
         #[derive(Debug)]
         #[non_exhaustive]
-        $pub struct $name(Vec<$inner>);
+        $pub struct $name($(#[$vec_attrs])* pub Vec<$inner>);
 
         impl ::std::fmt::Display for $name {
             fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
@@ -254,6 +262,7 @@ fn all_forms_compile() {
         #[derive(PartialEq)]
         EnumError
         "has error variants"
+        /// Documented variant
         - UnitError
     }
 
@@ -262,6 +271,7 @@ fn all_forms_compile() {
         #[derive(PartialEq)]
         pub RecordError
         "has data"
+        /// Documented field
         - field: i32
     }
 
@@ -269,14 +279,16 @@ fn all_forms_compile() {
         /// Documented
         #[derive(PartialEq)]
         TransError
+        /// Documented variant
         - RecordError
+        /// Documented variant
         - EnumError
     }
 
     quickerr! {
         /// Documented
         #[derive(PartialEq)]
-        ArrayError[UnitError]
+        ArrayError #[doc = "documented vec"] [UnitError]
         "encountered a series of errors"
     }
 
