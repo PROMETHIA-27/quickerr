@@ -91,7 +91,17 @@ use syn::{bracketed, Attribute, Generics, Ident, LitStr, Result, Type, Visibilit
 /// }
 /// ```
 ///
-/// Attributes can be added to fields and variants of struct/enum/array errors,
+/// Attributes can be added to fields and variants of struct/enum/array errors, and they can be
+/// made generic:
+/// ```
+/// # use quickerr::error;
+/// error! {
+///     /// In case of emergency
+///     BreakGlass<BreakingTool: std::fmt::Debug>
+///     "preferably with a blunt object"
+///     like_this_one: BreakingTool,
+/// }
+/// ```
 #[proc_macro]
 pub fn error(tokens: TokenStream) -> TokenStream {
     match error_impl(tokens.into()) {
@@ -155,11 +165,11 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
                 #(#attrs)*
                 #[derive(Debug)]
                 #[non_exhaustive]
-                #vis struct #name {
+                #vis struct #name #generics {
                     #fields
                 }
 
-                impl ::std::fmt::Display for #name {
+                impl #impl_gen ::std::fmt::Display for #name #ty_gen #where_gen {
                     #[allow(unused_variables)]
                     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                         let Self { #(#field_names,)* } = self;
@@ -167,7 +177,7 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
                     }
                 }
 
-                impl ::std::error::Error for #name {}
+                impl #impl_gen ::std::error::Error for #name #ty_gen #where_gen {}
             }
         }
         ErrorContents::Enum { sources } => {
@@ -178,20 +188,20 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
                 #(#attrs)*
                 #[derive(Debug)]
                 #[non_exhaustive]
-                #vis enum #name {
+                #vis enum #name #generics {
                     #(
                         #(#source_attrs)*
                         #source_idents(#source_idents),
                     )*
                 }
 
-                impl ::std::fmt::Display for #name {
+                impl #impl_gen ::std::fmt::Display for #name #ty_gen #where_gen {
                     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                         #write_msg
                     }
                 }
 
-                impl ::std::error::Error for #name {
+                impl #impl_gen ::std::error::Error for #name #ty_gen #where_gen {
                     fn source(&self) -> ::std::option::Option<&(dyn ::std::error::Error + 'static)> {
                         Some(match self {
                             #(
@@ -202,7 +212,7 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
                 }
 
                 #(
-                    impl ::std::convert::From<#source_idents> for #name {
+                    impl #impl_gen ::std::convert::From<#source_idents> for #name #ty_gen #where_gen {
                         fn from(source: #source_idents) -> Self {
                             Self::#source_idents(source)
                         }
@@ -216,9 +226,9 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
             #(#attrs)*
             #[derive(Debug)]
             #[non_exhaustive]
-            #vis struct #name(#(#inner_attrs)* pub Vec<#inner>);
+            #vis struct #name #generics (#(#inner_attrs)* pub Vec<#inner>);
 
-            impl ::std::fmt::Display for #name {
+            impl #impl_gen ::std::fmt::Display for #name #ty_gen #where_gen {
                 fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                     f.write_str(#msg)?;
                     f.write_str(":")?;
@@ -230,7 +240,7 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
                 }
             }
 
-            impl ::std::error::Error for #name {}
+            impl #impl_gen ::std::error::Error for #name #ty_gen #where_gen {}
         },
     })
 }
