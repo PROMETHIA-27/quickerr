@@ -1,28 +1,39 @@
+#![deny(missing_docs, rustdoc::all)]
 #![doc = include_str!("../README.md")]
 
 /// This macro allows quickly defining errors in the format that this crate produces.
 ///
 /// It has 4 major forms:
 /// - Unit struct:
-/// ```ignore
+/// ```
+/// # use quickerr::quickerr;
 /// quickerr! {
-///     ## MyUnitError
+///     MyUnitError
 ///     "it's a unit error"
 /// }
 /// ```
 /// - Record struct:
-/// ```ignore
+/// ```
+/// # use quickerr::quickerr;
+/// # #[derive(Debug)]
+/// # struct Type;
+/// # #[derive(Debug)]
+/// # struct Type2;
 /// quickerr! {
-///     ## MyStructError
+///     MyStructError
 ///     "it's a struct! Field 2 is {field2:?}"
 ///     - field: Type
 ///     - field2: Type2
 /// }
 /// ```
 /// - Enum:
-/// ```ignore
+/// ```
+/// # use quickerr::quickerr;
+/// # quickerr! { SourceError1 "" }
+/// # quickerr! { MyUnitError "" }
+/// # quickerr! { MyStructError "" }
 /// quickerr! {
-///     ## MyEnumError
+///     MyEnumError
 ///     "it's a whole enum"
 ///     - SourceError1
 ///     - MyUnitError
@@ -30,9 +41,12 @@
 /// }
 /// ```
 /// - Transparent enum:
-/// ```ignore
+/// ```
+/// # use quickerr::quickerr;
+/// # quickerr! { MyEnumError "uh oh" }
+/// # quickerr! { REALLY_LOUD_ERROR "uh oh" }
 /// quickerr! {
-///     ## QuietAsAMouse
+///     QuietAsAMouse
 ///     - MyEnumError
 ///     - REALLY_LOUD_ERROR
 /// }
@@ -47,18 +61,19 @@
 ///
 /// Additional attributes can be added before the name to add them to the error type,
 /// like so (simply drop the `#[]` part):
-/// ```ignore
+/// ```
+/// # use quickerr::quickerr;
 /// quickerr! {
-///     derive(PartialEq, Eq)
-///     ## AttrsError
+///     #[derive(PartialEq, Eq)]
+///     AttrsError
 ///     "has attributes!"
 /// }
 /// ```
 #[macro_export]
 macro_rules! quickerr {
     (
-        $($attrs:meta)*
-        # $pub:vis $name:ident
+        $(#[$attrs:meta])*
+        $pub:vis $name:ident
         $(
             - $source:ident
         )+
@@ -102,8 +117,8 @@ macro_rules! quickerr {
     };
 
     (
-        $($attrs:meta)*
-        # $pub:vis $name:ident
+        $(#[$attrs:meta])*
+        $pub:vis $name:ident
         $msg:literal
     ) => {
         $(#[$attrs])*
@@ -121,8 +136,8 @@ macro_rules! quickerr {
     };
 
     (
-        $($attrs:meta)*
-        # $pub:vis $name:ident
+        $(#[$attrs:meta])*
+        $pub:vis $name:ident
         $msg:literal
         $(
             - $field:ident : $ty:ty
@@ -149,8 +164,8 @@ macro_rules! quickerr {
     };
 
     (
-        $($attrs:meta)*
-        # $pub:vis $name:ident
+        $(#[$attrs:meta])*
+        $pub:vis $name:ident
         $msg:literal
         $(
             - $source:ident
@@ -194,28 +209,32 @@ macro_rules! quickerr {
 #[test]
 fn four_forms_compile() {
     quickerr! {
-        derive(PartialEq)
-        # pub UnitError
+        /// Documented
+        #[derive(PartialEq)]
+        pub UnitError
         "has no data"
     }
 
     quickerr! {
-        derive(PartialEq)
-        # EnumError
+        /// Documented
+        #[derive(PartialEq)]
+        EnumError
         "has error variants"
         - UnitError
     }
 
     quickerr! {
-        derive(PartialEq)
-        # pub RecordError
+        /// Documented
+        #[derive(PartialEq)]
+        pub RecordError
         "has data"
         - field: i32
     }
 
     quickerr! {
-        derive(PartialEq)
-        # TransError
+        /// Documented
+        #[derive(PartialEq)]
+        TransError
         - RecordError
         - EnumError
     }
