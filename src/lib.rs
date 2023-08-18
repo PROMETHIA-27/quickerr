@@ -102,6 +102,34 @@ use syn::{bracketed, Attribute, Generics, Ident, LitStr, Result, Type, Visibilit
 ///     like_this_one: BreakingTool,
 /// }
 /// ```
+///
+/// If cfg attributes are used, they're copied to relevant places to ensure it compiles properly:
+/// ```
+/// # use quickerr::error;
+/// # error!{ Case1 "" }
+/// # error!{ Case2 "" }
+/// # struct Foo;
+/// # struct Bar;
+/// error! {
+///     EnumErr
+///     "foo"
+///     #[cfg(feature = "foo")]
+///     Case1,
+///     #[cfg(feature = "bar")]
+///     Case2,
+/// }
+///
+/// error! {
+///     StructErr
+///     "bar"
+///     #[cfg(feature = "foo")]
+///     field1: Foo,
+///     #[cfg(feature = "bar")]
+///     field2: Bar,
+/// }
+/// ```
+/// Make sure not to use cfg'd fields in the error message string if those fields can ever be not
+/// present.
 #[proc_macro]
 pub fn error(tokens: TokenStream) -> TokenStream {
     match error_impl(tokens.into()) {
@@ -122,28 +150,6 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
 
     let (impl_gen, ty_gen, where_gen) = generics.split_for_impl();
 
-    let write_msg = match &msg {
-        Some(msg) => quote! {
-            f.write_str(#msg)
-        },
-        None => {
-            let sources = match &contents {
-                ErrorContents::Enum { sources } => sources
-                    .iter()
-                    .map(|source| &source.ident)
-                    .collect::<Vec<_>>(),
-                _ => unreachable!(),
-            };
-            quote! {
-                match self {
-                    #(
-                        Self::#sources(err) => ::std::fmt::Display::fmt(err, f),
-                    )*
-                }
-            }
-        }
-    };
-
     Ok(match contents {
         ErrorContents::Unit => quote! {
             #(#attrs)*
@@ -160,6 +166,16 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
             impl #impl_gen ::std::error::Error for #name #ty_gen #where_gen {}
         },
         ErrorContents::Struct { fields } => {
+            let cfgs: Vec<Vec<&Attribute>> = fields
+                .iter()
+                .map(|field| {
+                    field
+                        .attrs
+                        .iter()
+                        .filter(|attr| attr.meta.path().is_ident("cfg"))
+                        .collect()
+                })
+                .collect();
             let field_names: Vec<&Ident> = fields.iter().map(|field| &field.name).collect();
             quote! {
                 #(#attrs)*
@@ -172,7 +188,12 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
                 impl #impl_gen ::std::fmt::Display for #name #ty_gen #where_gen {
                     #[allow(unused_variables)]
                     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-                        let Self { #(#field_names,)* } = self;
+                        let Self {
+                            #(
+                                #(#cfgs)*
+                                #field_names,
+                            )*
+                        } = self;
                         f.write_fmt(format_args!(#msg))
                     }
                 }
@@ -183,7 +204,31 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
         ErrorContents::Enum { sources } => {
             let source_attrs: Vec<&Vec<Attribute>> =
                 sources.iter().map(|source| &source.attrs).collect();
+            let cfgs: Vec<Vec<Attribute>> = source_attrs
+                .iter()
+                .map(|&attrs| {
+                    let mut attrs = attrs.clone();
+                    attrs.retain(|attr| attr.meta.path().is_ident("cfg"));
+                    attrs
+                })
+                .collect();
             let source_idents: Vec<&Ident> = sources.iter().map(|source| &source.ident).collect();
+            let write_msg = match &msg {
+                Some(msg) => quote! {
+                    f.write_str(#msg)
+                },
+                None => {
+                    quote! {
+                        match self {
+                            #(
+                                #(#cfgs)*
+                                Self::#source_idents(err) => ::std::fmt::Display::fmt(err, f),
+                            )*
+                            _ => unreachable!(),
+                        }
+                    }
+                }
+            };
             quote! {
                 #(#attrs)*
                 #[derive(Debug)]
@@ -205,13 +250,16 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
                     fn source(&self) -> ::std::option::Option<&(dyn ::std::error::Error + 'static)> {
                         Some(match self {
                             #(
+                                #(#cfgs)*
                                 #name::#source_idents(err) => err,
                             )*
+                            _ => unreachable!(),
                         })
                     }
                 }
 
                 #(
+                    #(#cfgs)*
                     impl #impl_gen ::std::convert::From<#source_idents> for #name #ty_gen #where_gen {
                         fn from(source: #source_idents) -> Self {
                             Self::#source_idents(source)
