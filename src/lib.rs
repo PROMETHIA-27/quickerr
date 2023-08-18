@@ -111,6 +111,7 @@ use syn::{bracketed, Attribute, Generics, Ident, LitStr, Result, Type, Visibilit
 /// # struct Foo;
 /// # struct Bar;
 /// error! {
+///     #[cfg(feature = "drop_the_whole_error")]
 ///     EnumErr
 ///     "foo"
 ///     #[cfg(feature = "foo")]
@@ -150,6 +151,12 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
 
     let (impl_gen, ty_gen, where_gen) = generics.split_for_impl();
 
+    let item_cfgs: Vec<&Attribute> = attrs
+        .iter()
+        .filter(|attr| attr.meta.path().is_ident("cfg"))
+        .collect();
+    let item_cfgs = quote! { #(#item_cfgs)* };
+
     Ok(match contents {
         ErrorContents::Unit => quote! {
             #(#attrs)*
@@ -157,12 +164,14 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
             #[non_exhaustive]
             #vis struct #name #generics;
 
+            #item_cfgs
             impl #impl_gen ::std::fmt::Display for #name #ty_gen #where_gen {
                 fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                     f.write_str(#msg)
                 }
             }
 
+            #item_cfgs
             impl #impl_gen ::std::error::Error for #name #ty_gen #where_gen {}
         },
         ErrorContents::Struct { fields } => {
@@ -185,6 +194,7 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
                     #fields
                 }
 
+                #item_cfgs
                 impl #impl_gen ::std::fmt::Display for #name #ty_gen #where_gen {
                     #[allow(unused_variables)]
                     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
@@ -198,6 +208,7 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
                     }
                 }
 
+                #item_cfgs
                 impl #impl_gen ::std::error::Error for #name #ty_gen #where_gen {}
             }
         }
@@ -240,12 +251,14 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
                     )*
                 }
 
+                #item_cfgs
                 impl #impl_gen ::std::fmt::Display for #name #ty_gen #where_gen {
                     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                         #write_msg
                     }
                 }
 
+                #item_cfgs
                 impl #impl_gen ::std::error::Error for #name #ty_gen #where_gen {
                     fn source(&self) -> ::std::option::Option<&(dyn ::std::error::Error + 'static)> {
                         Some(match self {
@@ -259,6 +272,7 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
                 }
 
                 #(
+                    #item_cfgs
                     #(#cfgs)*
                     impl #impl_gen ::std::convert::From<#source_idents> for #name #ty_gen #where_gen {
                         fn from(source: #source_idents) -> Self {
@@ -276,6 +290,7 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
             #[non_exhaustive]
             #vis struct #name #generics (#(#inner_attrs)* pub Vec<#inner>);
 
+            #item_cfgs
             impl #impl_gen ::std::fmt::Display for #name #ty_gen #where_gen {
                 fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                     f.write_str(#msg)?;
@@ -288,6 +303,7 @@ fn error_impl(tokens: TokenStream2) -> Result<TokenStream2> {
                 }
             }
 
+            #item_cfgs
             impl #impl_gen ::std::error::Error for #name #ty_gen #where_gen {}
         },
     })
