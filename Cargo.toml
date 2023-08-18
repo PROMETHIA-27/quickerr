@@ -1,6 +1,6 @@
 [package]
 name = "quickerr"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 authors = ["PROMETHIA"]
 description = "A macro to define errors quickly, like `thiserror` but terser and more opinionated"
